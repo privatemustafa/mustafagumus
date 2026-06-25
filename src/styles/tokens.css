@@ -1,0 +1,51 @@
+/* Design tokens — Cultish-inspired aesthetic for Mustafa Gumus */
+
+:root {
+  /* Colors */
+  --color-background: #000000;
+  --color-text: #ffffff;
+  --color-link: #ffffff;
+  --color-link-hover: #ffffff;
+  --color-accent: #ffabd2;
+  --color-cream: #e9e0d0;
+  --color-cream-alt: #eae4d4;
+  --color-loader-bar-fill: #65523c;
+  --color-loader-bar-bg: rgba(101, 82, 60, 0.1);
+  --color-black: #000000;
+  --color-white: #ffffff;
+
+  /* Spacing */
+  --spacing: 0.25rem;
+  --page-padding: 1.5rem;
+
+  /* Typography */
+  --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Asul', Georgia, serif;
+  --font-logo: 'Syne', 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
+  --font-size-base: 12px;
+  --line-height-base: 1.5;
+
+  /* Transitions */
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 500ms;
+  --duration-enter: 400ms;
+
+  /* Z-index layers */
+  --z-canvas: 1;
+  --z-chrome: 997;
+  --z-menu-btn: 1000;
+  --z-loader: 2000;
+  --z-grain: 3000;
+
+  /* Grain — tüm viewport, siyah boşlukta da görünür */
+  --hero-noise-size: 64px 64px;
+  --hero-noise-opacity: 0.28;
+  --hero-noise-screen-opacity: 0.09;
+
+  /* Radius */
+  --radius-sm: 0.25rem;
+}
