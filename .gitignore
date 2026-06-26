@@ -26,3 +26,4 @@ scripts/.video-tmp
 *.njsproj
 *.sln
 *.sw?
+.vercel
