@@ -40,18 +40,24 @@ export function Loader({ onEnter }: LoaderProps) {
       setReady(true)
       return
     }
+    // Show as soon as a few slides are ready; never block more than ~1.2s.
     let loaded = 0
-    const goal = Math.min(24, slides.length)
+    const goal = Math.min(4, slides.length)
+    const fallback = window.setTimeout(() => setReady(true), 1200)
     slides.slice(0, goal).forEach((src) => {
       const img = new Image()
       const done = () => {
         loaded++
-        if (loaded >= goal) setReady(true)
+        if (loaded >= goal) {
+          clearTimeout(fallback)
+          setReady(true)
+        }
       }
       img.onload = done
       img.onerror = done
       img.src = src
     })
+    return () => clearTimeout(fallback)
   }, [slides])
 
   useEffect(() => {

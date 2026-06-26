@@ -1,17 +1,27 @@
-import { useState } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { Chrome } from './components/Chrome'
 import { Loader } from './components/Loader'
 import { Menu } from './components/Menu'
 import { useGrainOverlay } from './hooks/useGrainOverlay'
-import { HomePage } from './pages/HomePage'
-import { AboutPage } from './pages/AboutPage'
+
+// Lazy-load the heavy three.js universe so the loader paints instantly.
+const loadHome = () => import('./pages/HomePage')
+const HomePage = lazy(() => loadHome().then((m) => ({ default: m.HomePage })))
+const AboutPage = lazy(() =>
+  import('./pages/AboutPage').then((m) => ({ default: m.AboutPage })),
+)
 
 function AppContent() {
   const navigate = useNavigate()
   const [loaded, setLoaded] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [soundOn, setSoundOn] = useState(true)
+
+  // Warm the universe chunk in the background while the loader is on screen.
+  useEffect(() => {
+    loadHome()
+  }, [])
 
   function handleEnter() {
     setLoaded(true)
@@ -33,10 +43,12 @@ function AppContent() {
           />
 
           <main className="relative" style={{ zIndex: 'var(--z-canvas)' }}>
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/about" element={<AboutPage />} />
-            </Routes>
+            <Suspense fallback={<div className="fixed inset-0 bg-black" />}>
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/about" element={<AboutPage />} />
+              </Routes>
+            </Suspense>
           </main>
         </>
       )}

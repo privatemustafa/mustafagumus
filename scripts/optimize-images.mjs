@@ -14,8 +14,8 @@ const SRC_DIR = path.join(ROOT, 'public/images/instagram')
 const OUT_DIR = path.join(ROOT, 'public/images/instagram/webp')
 const MANIFEST_PATH = path.join(ROOT, 'src/data/images.json')
 
-const MAX_WIDTH = 900
-const QUALITY = 78
+const MAX_WIDTH = 820
+const QUALITY = 74
 
 async function main() {
   await mkdir(OUT_DIR, { recursive: true })
