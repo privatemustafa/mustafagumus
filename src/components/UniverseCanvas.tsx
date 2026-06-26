@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import * as THREE from 'three'
 import { VideoPlayer } from '../lib/VideoPlayer'
+import { getDeviceCapabilities } from '../lib/deviceCapabilities'
 
 export interface UniverseMedia {
   id: number
@@ -130,9 +131,9 @@ function assignRandomLayout(count: number) {
   })
 }
 
-function pickGrayscaleSet(count: number): Set<number> {
-  const n = Math.max(1, Math.round(count * BW_RATIO))
-  return new Set(shuffle([...Array(count).keys()]).slice(0, n))
+function pickGrayscaleSet(imageIndices: number[]): Set<number> {
+  const n = Math.max(1, Math.round(imageIndices.length * BW_RATIO))
+  return new Set(shuffle(imageIndices).slice(0, n))
 }
 
 // One shared onBeforeCompile — all materials share the same GL program
@@ -214,6 +215,12 @@ export function UniverseCanvas({ media }: UniverseCanvasProps) {
     const container = containerRef.current
     if (!container || media.length === 0) return
 
+    const caps = getDeviceCapabilities()
+    const VIDEO_LOAD_RANGE = caps.videoLoadRange
+    const VIDEO_UNLOAD_RANGE = caps.videoUnloadRange
+    const MAX_CONCURRENT_VIDEOS = caps.maxConcurrentVideos
+    const VIDEO_PRELOAD: 'auto' | 'metadata' = caps.isMobile ? 'metadata' : 'auto'
+
     const width = container.clientWidth
     const height = container.clientHeight
     const count = media.length
@@ -230,39 +237,41 @@ export function UniverseCanvas({ media }: UniverseCanvasProps) {
       antialias: false,  // off for perf; grain overlay hides any aliasing
       powerPreference: 'high-performance',
       alpha: false,
+      // Lets the browser drop the GL context under memory pressure instead of crashing
+      failIfMajorPerformanceCaveat: false,
     })
     renderer.setSize(width, height)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, caps.pixelRatio))
     renderer.outputColorSpace = THREE.SRGBColorSpace
     container.appendChild(renderer.domElement)
 
     const loader = new THREE.TextureLoader()
     const meshes: THREE.Mesh[] = []
     const loadState = new Map<number, 'pending' | 'loading' | 'loaded'>()
-    const videoPlayers: VideoPlayer[] = []
+    const videoPlayers = new Map<number, VideoPlayer>()
+
+    const imageIndices = media
+      .map((m, i) => (m.type === 'video' ? -1 : i))
+      .filter((i) => i >= 0)
 
     let layouts = assignRandomLayout(count)
-    let grayscaleSet = pickGrayscaleSet(count)
+    let grayscaleSet = pickGrayscaleSet(imageIndices)
 
-    let reshufflePending = false
-    const reshuffleAll = () => {
-      if (reshufflePending) return
-      reshufflePending = true
-      // Defer heavy layout work off the render frame
-      const doReshuffle = () => {
-        layouts = assignRandomLayout(count)
-        grayscaleSet = pickGrayscaleSet(count)
-        meshes.forEach((mesh, i) => {
-          mesh.userData.slot = layouts[i].slot
-          mesh.userData.scatter = layouts[i].scatter
-          setGrayscale(mesh, grayscaleSet.has(i))
-        })
-        reshufflePending = false
-      }
-      if (typeof requestIdleCallback !== 'undefined') {
-        requestIdleCallback(doReshuffle, { timeout: 200 })
-      } else {
-        setTimeout(doReshuffle, 0)
+    const reshuffleMesh = (i: number) => {
+      const neighbors: SlotPos[] = []
+      meshes.forEach((m, j) => {
+        if (j === i) return
+        const sc = m.userData.scatter as Scatter
+        neighbors.push({ x: sc.x, y: sc.y, scale: sc.scale })
+      })
+      const scatter = randomScatter(neighbors)
+      const slot = Math.floor(Math.random() * DEPTH_LAYERS)
+      layouts[i] = { slot, scatter }
+      const mesh = meshes[i]
+      mesh.userData.slot = slot
+      mesh.userData.scatter = scatter
+      if (!mesh.userData.isVideo) {
+        setGrayscale(mesh, Math.random() < BW_RATIO)
       }
     }
 
@@ -302,7 +311,7 @@ export function UniverseCanvas({ media }: UniverseCanvasProps) {
       attachGrayscaleShader(mat)
       if (videoPlayer) {
         mat.userData.videoPlayer = videoPlayer
-        videoPlayers.push(videoPlayer)
+        videoPlayers.set(i, videoPlayer)
       }
 
       const mesh = meshes[i]
@@ -312,10 +321,39 @@ export function UniverseCanvas({ media }: UniverseCanvasProps) {
       mesh.material = mat
       mesh.userData.isPlaceholder = false
       mesh.userData.isVideo = !!videoPlayer
-      setGrayscale(mesh, grayscaleSet.has(i))
+      setGrayscale(mesh, !videoPlayer && grayscaleSet.has(i))
       mesh.userData.slot = slot
       mesh.userData.scatter = scatter
       loadState.set(i, 'loaded')
+    }
+
+    // Revert a (video) mesh back to an invisible placeholder so its decoder
+    // and texture memory are freed when it scrolls far off-screen.
+    const revertToPlaceholder = (i: number) => {
+      const mesh = meshes[i]
+      const scatter = mesh.userData.scatter as Scatter
+      const size = 5.4 * Math.max(scatter.scale, 0.35)
+      const mat = mesh.material as MediaMaterial
+      mat.map?.dispose()
+      mat.dispose()
+      mesh.geometry.dispose()
+      mesh.geometry = new THREE.PlaneGeometry(size * 0.85, size)
+      mesh.material = new THREE.MeshBasicMaterial({
+        color: 0x111111,
+        transparent: true,
+        opacity: 0,
+      })
+      mesh.userData.isPlaceholder = true
+      mesh.userData.isVideo = false
+    }
+
+    const unloadVideo = (i: number) => {
+      const player = videoPlayers.get(i)
+      if (!player) return
+      videoPlayers.delete(i)
+      player.dispose()
+      revertToPlaceholder(i)
+      loadState.set(i, 'pending')
     }
 
     const loadTexture = (i: number) => {
@@ -327,35 +365,52 @@ export function UniverseCanvas({ media }: UniverseCanvasProps) {
       const slot = layouts[i].slot
 
       if (item.type === 'video' && item.videoSrc) {
-        const player = new VideoPlayer(item.videoSrc)
+        const player = new VideoPlayer(item.videoSrc, VIDEO_PRELOAD)
         player
           .load()
           .then(() => {
+            // Mesh may have scrolled away while the video was buffering.
+            if (loadState.get(i) !== 'loading') {
+              player.dispose()
+              return
+            }
             applyTexture(i, player.texture, scatter, slot, player)
-            player.play()
           })
           .catch(() => {
-            // Video yoksa poster görseline düş
-            loader.load(item.src, (texture) => applyTexture(i, texture, scatter, slot))
+            if (loadState.get(i) !== 'loading') return
+            // Video yoksa / yüklenmediyse poster görseline düş
+            loader.load(
+              item.src,
+              (texture) => applyTexture(i, texture, scatter, slot),
+              undefined,
+              () => loadState.set(i, 'pending'),
+            )
           })
         return
       }
 
-      loader.load(item.src, (texture) => applyTexture(i, texture, scatter, slot))
+      loader.load(
+        item.src,
+        (texture) => applyTexture(i, texture, scatter, slot),
+        undefined,
+        () => loadState.set(i, 'pending'),
+      )
     }
 
-    const videoFirst = media
+    // Images load progressively in the background; videos load lazily by
+    // proximity inside the animation loop so only a few decoders live at once.
+    const imageQueue = media
       .map((m, i) => ({ i, video: m.type === 'video' }))
-      .sort((a, b) => Number(b.video) - Number(a.video))
+      .filter((x) => !x.video)
       .map((x) => x.i)
 
-    const EAGER = Math.min(20, count)
-    for (let e = 0; e < EAGER; e++) loadTexture(videoFirst[e])
+    const EAGER = Math.min(16, imageQueue.length)
+    for (let e = 0; e < EAGER; e++) loadTexture(imageQueue[e])
 
-    let loadQueue = videoFirst.slice(EAGER)
+    const loadQueue = imageQueue.slice(EAGER)
     let loadCursor = 0
-    const BATCH = 8
-    const BATCH_INTERVAL = 120 // ms
+    const BATCH = caps.tier === 'low' ? 4 : 8
+    const BATCH_INTERVAL = caps.tier === 'low' ? 200 : 120 // ms
 
     const batchTimer = setInterval(() => {
       const end = Math.min(loadCursor + BATCH, loadQueue.length)
@@ -367,28 +422,35 @@ export function UniverseCanvas({ media }: UniverseCanvasProps) {
     document.addEventListener('pointerdown', tryPlayVideos, { once: true })
 
     let animId = 0
+    let running = true
+    let contextLost = false
+
+    type VideoCandidate = { i: number; dist: number; player: VideoPlayer }
+    const videoCandidates: VideoCandidate[] = []
+
     const animate = () => {
       animId = requestAnimationFrame(animate)
+      if (!running || contextLost) return
+
       const st = stateRef.current
 
       st.velocity *= FRICTION
       st.travel += st.velocity
 
-      if (st.travel >= trackLength) {
-        st.travel -= trackLength
-        reshuffleAll()
-      } else if (st.travel < 0) {
-        st.travel += trackLength
-        reshuffleAll()
-      }
+      // Seamless wrap — no global reshuffle (avoids visible loop pop)
+      if (st.travel >= trackLength) st.travel -= trackLength
+      else if (st.travel < 0) st.travel += trackLength
 
       st.camX += (st.mouseX * PARALLAX_X - st.camX) * PARALLAX_LERP
       st.camY += (st.mouseY * PARALLAX_Y - st.camY) * PARALLAX_LERP
       camera.position.set(st.camX, st.camY, BASE_CAMERA_Z)
 
+      videoCandidates.length = 0
+
       meshes.forEach((mesh, i) => {
         const slot = mesh.userData.slot as number
         const sc = mesh.userData.scatter as Scatter
+        const isVideoItem = media[i].type === 'video'
 
         let z = SPAWN_Z - slot * SPACING + st.travel + sc.zJitter
         while (z > 12) z -= trackLength
@@ -411,29 +473,90 @@ export function UniverseCanvas({ media }: UniverseCanvasProps) {
 
         if (mesh.userData.isPlaceholder) {
           mat.opacity = 0
-          if (dist < LOAD_RANGE && loadState.get(i) === 'pending') loadTexture(i)
+          const loadRange = isVideoItem ? VIDEO_LOAD_RANGE : LOAD_RANGE
+          if (dist < loadRange && loadState.get(i) === 'pending') loadTexture(i)
           return
         }
 
         mat.opacity = alpha
 
+        // Reshuffle only when far off-screen — invisible, smooth loop handoff
+        if (z < -VISIBLE_RANGE + 10 && alpha < 0.05) {
+          const cd = (mesh.userData.reshuffleCooldown as number) ?? 0
+          if (cd <= 0) {
+            reshuffleMesh(i)
+            mesh.userData.reshuffleCooldown = 45
+          } else {
+            mesh.userData.reshuffleCooldown = cd - 1
+          }
+        }
+
         const player = (mat as MediaMaterial).userData.videoPlayer
         if (player) {
-          player.setActive(dist < VIDEO_PLAY_RANGE && alpha > 0.12)
+          // Free the decoder once it scrolls well out of view
+          if (dist > VIDEO_UNLOAD_RANGE) {
+            unloadVideo(i)
+            return
+          }
+          if (dist < VIDEO_PLAY_RANGE && alpha > 0.12) {
+            videoCandidates.push({ i, dist, player })
+          } else {
+            player.setActive(false)
+          }
         }
       })
+
+      // Only let the nearest N videos play — bounds simultaneous decoders so
+      // even low-end phones / iOS Safari stay smooth.
+      if (videoCandidates.length > MAX_CONCURRENT_VIDEOS) {
+        videoCandidates.sort((a, b) => a.dist - b.dist)
+      }
+      for (let v = 0; v < videoCandidates.length; v++) {
+        videoCandidates[v].player.setActive(v < MAX_CONCURRENT_VIDEOS)
+      }
 
       renderer.render(scene, camera)
     }
 
     animate()
 
-    const onResize = () => {
+    // Pause the whole loop + all videos when the tab/app is backgrounded.
+    const onVisibility = () => {
+      const hidden = document.hidden
+      running = !hidden
+      if (hidden) {
+        videoPlayers.forEach((p) => p.setActive(false))
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    // Recover gracefully if the browser drops the WebGL context (common on
+    // mobile under memory pressure) instead of showing a dead black canvas.
+    const glCanvas = renderer.domElement
+    const onContextLost = (e: Event) => {
+      e.preventDefault()
+      contextLost = true
+      videoPlayers.forEach((p) => p.setActive(false))
+    }
+    const onContextRestored = () => {
+      contextLost = false
+    }
+    glCanvas.addEventListener('webglcontextlost', onContextLost as EventListener, false)
+    glCanvas.addEventListener('webglcontextrestored', onContextRestored as EventListener, false)
+
+    let resizeTimer = 0
+    const applyResize = () => {
       const w = container.clientWidth
       const h = container.clientHeight
+      if (w === 0 || h === 0) return
       camera.aspect = w / h
       camera.updateProjectionMatrix()
       renderer.setSize(w, h)
+    }
+    // Debounce — mobile URL-bar show/hide fires resize continuously while scrolling.
+    const onResize = () => {
+      if (resizeTimer) clearTimeout(resizeTimer)
+      resizeTimer = window.setTimeout(applyResize, 150)
     }
 
     const onMouseMove = (e: MouseEvent) => {
@@ -484,9 +607,14 @@ export function UniverseCanvas({ media }: UniverseCanvasProps) {
     canvas.addEventListener('pointercancel', onPointerUp)
 
     return () => {
+      running = false
+      if (resizeTimer) clearTimeout(resizeTimer)
       clearInterval(batchTimer)
       cancelAnimationFrame(animId)
       document.removeEventListener('pointerdown', tryPlayVideos)
+      document.removeEventListener('visibilitychange', onVisibility)
+      glCanvas.removeEventListener('webglcontextlost', onContextLost as EventListener)
+      glCanvas.removeEventListener('webglcontextrestored', onContextRestored as EventListener)
       window.removeEventListener('resize', onResize)
       container.removeEventListener('wheel', handleWheel)
       container.removeEventListener('mousemove', onMouseMove)

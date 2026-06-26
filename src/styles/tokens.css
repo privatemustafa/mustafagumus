@@ -43,8 +43,8 @@
 
   /* Grain — tüm viewport, siyah boşlukta da görünür */
   --hero-noise-size: 64px 64px;
-  --hero-noise-opacity: 0.28;
-  --hero-noise-screen-opacity: 0.09;
+  --hero-noise-opacity: 0.14;
+  --hero-noise-screen-opacity: 0.035;
 
   /* Radius */
   --radius-sm: 0.25rem;

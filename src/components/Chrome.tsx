@@ -1,8 +1,8 @@
 import { SoundVisualizer } from './SoundVisualizer'
 import { Logo } from './Logo'
+import { BrandTicker } from './BrandTicker'
 
 interface ChromeProps {
-  sectionLabel?: string
   year?: string
   soundOn?: boolean
   onToggleSound?: () => void
@@ -10,7 +10,6 @@ interface ChromeProps {
 }
 
 export function Chrome({
-  sectionLabel = 'INDEX',
   year = '2026',
   soundOn = true,
   onToggleSound,
@@ -18,12 +17,12 @@ export function Chrome({
 }: ChromeProps) {
   return (
     <>
-      {/* Top center — logo opens menu */}
+      {/* Top center — logo → home / universe */}
       <div
         className="fixed top-7 left-1/2 -translate-x-1/2"
         style={{ zIndex: 'var(--z-menu-btn)' }}
       >
-        <Logo onOpenMenu={() => onOpenMenu?.()} />
+        <Logo />
       </div>
 
       {/* Top left — sound */}
@@ -41,38 +40,29 @@ export function Chrome({
         </button>
       </div>
 
-      {/* Top right — scroll hint */}
-      <div
-        className="fixed top-10 right-6 pointer-events-none"
-        style={{ zIndex: 'var(--z-chrome)' }}
-      >
-        <div className="w-6 h-6 border border-white/40 rounded-full flex items-center justify-center">
-          <div className="w-0.5 h-2 bg-white/60 rounded-full" />
-        </div>
-      </div>
-
-      {/* Bottom left — meta */}
-      <div
-        className="fixed bottom-6 left-6 pointer-events-none"
-        style={{ zIndex: 'var(--z-chrome)' }}
-      >
-        <span className="text-white/40 text-[10px] font-mono tracking-[0.3em] uppercase">
-          {year} · Istanbul
-        </span>
-      </div>
-
-      {/* Bottom right — section/year */}
-      <div
-        className="fixed bottom-6 right-6 pointer-events-none"
-        style={{ zIndex: 'var(--z-chrome)' }}
-      >
-        <span
-          className="text-white text-2xl tracking-wider"
-          style={{ fontFamily: 'var(--font-display)' }}
+      {/* Top right — menu */}
+      <div className="fixed top-10 right-6" style={{ zIndex: 'var(--z-chrome)' }}>
+        <button
+          type="button"
+          onClick={() => onOpenMenu?.()}
+          className="text-white/50 font-mono text-[10px] tracking-[0.35em] uppercase hover:text-white transition-colors duration-200"
+          aria-label="Open menu"
         >
-          {sectionLabel}
+          MENU
+        </button>
+      </div>
+
+      {/* Bottom left — meta (above brand ticker) */}
+      <div
+        className="fixed bottom-9 sm:bottom-10 left-4 sm:left-6 pointer-events-none"
+        style={{ zIndex: 'var(--z-chrome)' }}
+      >
+        <span className="text-white/40 text-[8px] sm:text-[10px] font-mono tracking-[0.12em] sm:tracking-[0.18em]">
+          {year} Represented by MMG ARTISTS
         </span>
       </div>
+
+      <BrandTicker />
     </>
   )
 }

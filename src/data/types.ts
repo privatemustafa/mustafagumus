@@ -26,8 +26,6 @@ export const SECTIONS: Section[] = [
 ]
 
 export const MENU_ITEMS = [
-  { label: 'INDEX', href: '/' },
-  { label: 'WORK', href: '/work' },
   { label: 'ABOUT', href: '/about' },
   { label: 'CONTACT', href: 'mailto:info@mustafagumus.co', external: true },
 ]

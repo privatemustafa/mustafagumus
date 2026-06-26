@@ -15,6 +15,7 @@ dist-ssr
 # Scraper cache
 scripts/.scrape-progress.json
 scripts/.video-tmp
+scripts/.instagram-session
 
 # Editor directories and files
 .vscode/*

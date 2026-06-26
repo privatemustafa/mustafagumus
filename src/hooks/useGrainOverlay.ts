@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
+import { getDeviceCapabilities } from '../lib/deviceCapabilities'
 
 const GRAIN_SIZE = 128   // smaller = less data, still fine grain
-const FPS = 10           // grain refresh rate — above 8 is imperceptible
 
 let sharedCanvas: HTMLCanvasElement | null = null
 let sharedCtx: CanvasRenderingContext2D | null = null
@@ -21,7 +21,15 @@ function drawGrainFrame() {
   const imageData = sharedCtx.createImageData(GRAIN_SIZE, GRAIN_SIZE)
   const d = imageData.data
   for (let i = 0; i < d.length; i += 4) {
-    const v = Math.random() < 0.5 ? Math.random() * 30 : 215 + Math.random() * 40
+    const roll = Math.random()
+    let v: number
+    if (roll < 0.78) {
+      v = Math.random() * 18
+    } else if (roll < 0.96) {
+      v = 28 + Math.random() * 32
+    } else {
+      v = 120 + Math.random() * 45
+    }
     d[i] = d[i + 1] = d[i + 2] = v
     d[i + 3] = 255
   }
@@ -30,10 +38,11 @@ function drawGrainFrame() {
 
 export function useGrainOverlay() {
   useEffect(() => {
+    const caps = getDeviceCapabilities()
     const canvas = getGrainCanvas()
     drawGrainFrame()   // first frame immediately
 
-    // CSS var: set once with the canvas data URL initially
+    // toDataURL is the expensive part — throttle harder on mobile/low-end.
     const update = () => {
       drawGrainFrame()
       document.documentElement.style.setProperty(
@@ -43,9 +52,22 @@ export function useGrainOverlay() {
     }
     update()
 
-    // Refresh at FPS using setInterval — off the rAF so Three.js loop is unaffected
-    const ms = Math.round(1000 / FPS)
-    const id = setInterval(update, ms)
-    return () => clearInterval(id)
+    // Static grain frame when the user prefers reduced motion.
+    if (caps.reducedMotion) return
+
+    const ms = Math.round(1000 / Math.max(1, caps.grainFps))
+    let id = window.setInterval(update, ms)
+
+    // Stop regenerating grain while the tab is hidden (saves battery/CPU).
+    const onVisibility = () => {
+      clearInterval(id)
+      if (!document.hidden) id = window.setInterval(update, ms)
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [])
 }

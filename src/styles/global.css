@@ -105,9 +105,9 @@
 
 .logo__lockup {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.55em;
   line-height: 1;
 }
 
@@ -115,17 +115,8 @@
   font-family: var(--font-logo);
   font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.34em;
-  text-indent: 0.34em;
+  letter-spacing: 0.22em;
   white-space: nowrap;
-}
-
-.logo__line--sub {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.46em;
-  text-indent: 0.46em;
-  opacity: 0.78;
 }
 
 /* Film grain — texture JS tarafından ~10fps güncelleniyor, CSS animasyon yok */
@@ -142,7 +133,7 @@ body::after {
   opacity: var(--hero-noise-opacity);
   z-index: var(--z-grain);
   pointer-events: none;
-  mix-blend-mode: overlay;
+  mix-blend-mode: soft-light;
   will-change: background-image;
   contain: strict;
 }
@@ -160,9 +151,30 @@ body::after {
   opacity: var(--hero-noise-screen-opacity);
   z-index: var(--z-grain);
   pointer-events: none;
-  mix-blend-mode: screen;
+  mix-blend-mode: soft-light;
   will-change: background-image;
   contain: strict;
+}
+
+@keyframes brand-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.brand-ticker-track {
+  width: max-content;
+  animation: brand-marquee 70s linear infinite;
+  will-change: transform;
+}
+
+@media (max-width: 640px) {
+  .brand-ticker-track {
+    animation-duration: 55s;
+  }
 }
 
 @keyframes fadeIn {

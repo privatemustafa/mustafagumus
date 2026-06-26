@@ -1,37 +1,74 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import imagesManifest from '../data/images.json'
+import { filterProfileManifest } from '../lib/manifestFilter'
+import { BrandTicker } from './BrandTicker'
 
 interface LoaderProps {
   onEnter: () => void
 }
 
-const HERO_IMAGES = [
-  '/images/instagram/webp/img-0001.webp',
-  '/images/instagram/webp/img-0002.webp',
-  '/images/instagram/webp/img-0003.webp',
-]
+type ManifestEntry = { src: string; type?: string }
 
-function pickHero() {
-  return HERO_IMAGES[Math.floor(Math.random() * HERO_IMAGES.length)]
+const SLIDE_MS = 333 // ~3 changes per second
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
 }
 
 export function Loader({ onEnter }: LoaderProps) {
   const [exiting, setExiting] = useState(false)
   const [ready, setReady] = useState(false)
-  const [hero] = useState(pickHero)
+  const [slide, setSlide] = useState(0)
+
+  const slides = useMemo(
+    () =>
+      shuffle(
+        filterProfileManifest(imagesManifest as ManifestEntry[])
+          .filter((e) => e.type !== 'video' && e.src?.includes('/images/'))
+          .map((e) => e.src),
+      ),
+    [],
+  )
 
   useEffect(() => {
-    // Preload hero image
-    const img = new Image()
-    img.onload = () => setReady(true)
-    img.onerror = () => setReady(true)
-    img.src = hero
-  }, [hero])
+    if (slides.length === 0) {
+      setReady(true)
+      return
+    }
+    let loaded = 0
+    const goal = Math.min(24, slides.length)
+    slides.slice(0, goal).forEach((src) => {
+      const img = new Image()
+      const done = () => {
+        loaded++
+        if (loaded >= goal) setReady(true)
+      }
+      img.onload = done
+      img.onerror = done
+      img.src = src
+    })
+  }, [slides])
+
+  useEffect(() => {
+    if (!ready || slides.length < 2) return
+    const id = setInterval(() => {
+      setSlide((i) => (i + 1) % slides.length)
+    }, SLIDE_MS)
+    return () => clearInterval(id)
+  }, [ready, slides.length])
 
   function handleEnter() {
-    if (!ready) return
+    if (exiting) return
     setExiting(true)
     setTimeout(onEnter, 450)
   }
+
+  const bgSrc = slides[slide] ?? slides[0]
 
   return (
     <div
@@ -43,31 +80,42 @@ export function Loader({ onEnter }: LoaderProps) {
       onKeyDown={(e) => e.key === 'Enter' && handleEnter()}
       role="button"
       tabIndex={0}
-      aria-label="Enter site"
+      aria-label="Enter Mustafa Gumus archive — home"
     >
-      <div className="relative flex flex-col items-center gap-6 w-[min(88vw,460px)]">
+      <div className="relative flex flex-col items-center gap-6 w-full max-w-[min(92vw,560px)] px-4">
         <div
-          className={`relative w-full aspect-[4/5] overflow-hidden transition-opacity duration-500 ${
+          className={`relative flex w-full min-h-[min(48vh,380px)] items-center justify-center transition-opacity duration-500 ${
             ready ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          <img
-            src={hero}
-            alt=""
-            className="w-full h-full object-cover"
-            style={{ transform: 'rotate(-1.5deg) scale(1.05)' }}
-            loading="eager"
-            decoding="async"
-          />
-          <div className="absolute inset-0 flex items-center justify-center">
+          {/* Slideshow — natural aspect (portrait stays tall, landscape stays wide) */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="relative inline-block max-w-[min(84vw,520px)] max-h-[min(42vh,340px)] opacity-[0.38]">
+              {bgSrc && (
+                <img
+                  key={bgSrc}
+                  src={bgSrc}
+                  alt=""
+                  className="block max-w-[min(84vw,520px)] max-h-[min(42vh,340px)] w-auto h-auto object-contain"
+                  decoding="async"
+                />
+              )}
+              <div className="absolute inset-0 bg-black/25" />
+            </div>
+          </div>
+
+          <div className="relative z-10 flex items-center justify-center px-4">
             <h1
-              className="text-white text-5xl sm:text-7xl tracking-wider"
+              className="text-white text-center text-3xl sm:text-5xl tracking-[0.06em] leading-tight"
               style={{
-                fontFamily: 'var(--font-display)',
-                animation: ready ? 'glitchText 3s ease-in-out infinite' : 'none',
+                fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+                fontStyle: 'italic',
+                fontWeight: 400,
               }}
             >
-              STEP INSIDE
+              MUSTAFAGUMUS
+              <br />
+              ARCHIVE
             </h1>
           </div>
         </div>
@@ -90,6 +138,8 @@ export function Loader({ onEnter }: LoaderProps) {
           </span>
         )}
       </div>
+
+      <BrandTicker />
     </div>
   )
 }
