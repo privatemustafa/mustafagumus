@@ -1,16 +1,14 @@
-import { Link } from 'react-router-dom'
-
 interface LogoProps {
-  onNavigate?: () => void
+  onOpenMenu?: () => void
 }
 
-export function Logo({ onNavigate }: LogoProps) {
+export function Logo({ onOpenMenu }: LogoProps) {
   return (
-    <Link
-      to="/"
+    <button
+      type="button"
       className="logo"
-      onClick={() => onNavigate?.()}
-      aria-label="Mustafa Gumus — home"
+      onClick={() => onOpenMenu?.()}
+      aria-label="Open menu"
     >
       <span className="logo__rule" aria-hidden />
       <span className="logo__lockup">
@@ -18,6 +16,6 @@ export function Logo({ onNavigate }: LogoProps) {
         <span className="logo__line">GUMUS</span>
       </span>
       <span className="logo__rule" aria-hidden />
-    </Link>
+    </button>
   )
 }

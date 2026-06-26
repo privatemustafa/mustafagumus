@@ -16,7 +16,6 @@ function AppContent() {
   const navigate = useNavigate()
   const [loaded, setLoaded] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [soundOn, setSoundOn] = useState(true)
 
   // Warm the universe chunk in the background while the loader is on screen.
   useEffect(() => {
@@ -37,8 +36,6 @@ function AppContent() {
           <Menu open={menuOpen} onClose={() => setMenuOpen(false)} />
           <Chrome
             year="2026"
-            soundOn={soundOn}
-            onToggleSound={() => setSoundOn((s) => !s)}
             onOpenMenu={() => setMenuOpen(true)}
           />
 
