@@ -6,6 +6,7 @@ import { MotionCursor } from '../components/MotionCursor'
 
 export function MotionPage() {
   const [frontIndex, setFrontIndex] = useState(0)
+  const [soundOn, setSoundOn] = useState(false)
   const helixRef = useRef<MotionHelixHandle>(null)
   const count = MOTION_ITEMS.length
 
@@ -25,6 +26,7 @@ export function MotionPage() {
   }, [])
 
   const handleFront = useCallback((index: number) => setFrontIndex(index), [])
+  const handleSound = useCallback((unmuted: boolean) => setSoundOn(unmuted), [])
 
   useEffect(() => {
     const unlock = () => {
@@ -59,7 +61,47 @@ export function MotionPage() {
     <div className="fixed inset-0 z-[2100] overflow-hidden touch-none select-none">
       <div className="absolute inset-0 bg-[#0a0a0a]" />
 
-      <MotionHelixStack ref={helixRef} items={MOTION_ITEMS} onFrontIndexChange={handleFront} />
+      <MotionHelixStack
+        ref={helixRef}
+        items={MOTION_ITEMS}
+        onFrontIndexChange={handleFront}
+        onSoundStateChange={handleSound}
+      />
+
+      {/* Subtle sound-state hint — reflects the centred clip's mute state and
+          signals that the front video is click-to-unmute. */}
+      <div
+        className="absolute bottom-16 lg:bottom-7 inset-x-0 z-[2200] flex justify-center pointer-events-none"
+        aria-hidden
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#fff"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{
+            opacity: soundOn ? 0.7 : 0.32,
+            transition: 'opacity 400ms ease',
+          }}
+        >
+          <path d="M11 5 6 9H2v6h4l5 4z" />
+          {soundOn ? (
+            <>
+              <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+              <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+            </>
+          ) : (
+            <>
+              <line x1="22" y1="9" x2="16" y2="15" />
+              <line x1="16" y1="9" x2="22" y2="15" />
+            </>
+          )}
+        </svg>
+      </div>
 
       <div className="absolute bottom-6 inset-x-0 z-[2200] flex justify-center gap-2 px-4 lg:hidden pointer-events-auto">
         {MOTION_ITEMS.map((item, i) => (

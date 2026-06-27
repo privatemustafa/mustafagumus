@@ -15,6 +15,8 @@ export type MotionHelixHandle = {
 type MotionHelixStackProps = {
   items: MotionEntry[]
   onFrontIndexChange?: (videoIndex: number) => void
+  /** Fires whenever the centered video's sound turns on (true) or off (false). */
+  onSoundStateChange?: (unmuted: boolean) => void
 }
 
 /** Landscape card width (unchanged from the original look). */
@@ -94,13 +96,17 @@ function shuffledPermutation(n: number, seed: number): number[] {
 }
 
 function MotionHelixStackBase(
-  { items, onFrontIndexChange }: MotionHelixStackProps,
+  { items, onFrontIndexChange, onSoundStateChange }: MotionHelixStackProps,
   ref: React.Ref<MotionHelixHandle>,
 ) {
   const total = items.length
   const cardsRef = useRef<CardState[]>([])
   const rafRef = useRef(0)
   const frontVideoRef = useRef(-1)
+  /** The card nearest centre (smallest |delta|) — the clickable/playing one. */
+  const frontCardRef = useRef<CardState | null>(null)
+  /** The single video currently allowed to have audio, or null when all muted. */
+  const unmutedVideoRef = useRef<HTMLVideoElement | null>(null)
 
   const targetPos = useRef(0)
   const displayPos = useRef(0)
@@ -109,6 +115,8 @@ function MotionHelixStackBase(
 
   const onFrontRef = useRef(onFrontIndexChange)
   onFrontRef.current = onFrontIndexChange
+  const onSoundRef = useRef(onSoundStateChange)
+  onSoundRef.current = onSoundStateChange
 
   // Per-loop permutation cache — loop 0 keeps the natural manifest order,
   // every other loop gets a deterministic shuffle so the sequence feels fresh
@@ -263,11 +271,59 @@ function MotionHelixStackBase(
       touching = false
     }
 
+    // Click (not drag) on the centred clip toggles its sound. Only one video
+    // is ever unmuted; everything else stays muted.
+    const toggleSound = (video: HTMLVideoElement) => {
+      if (unmutedVideoRef.current === video && !video.muted) {
+        video.muted = true
+        unmutedVideoRef.current = null
+        onSoundRef.current?.(false)
+        return
+      }
+      cardsRef.current.forEach((c) => {
+        if (c.video && c.video !== video) c.video.muted = true
+      })
+      video.muted = false
+      if (video.paused) video.play().catch(() => {})
+      unmutedVideoRef.current = video
+      onSoundRef.current?.(true)
+    }
+
+    const CLICK_SLOP = 6
+    let downX = 0
+    let downY = 0
+    let pointerActive = false
+    const onPointerDown = (e: PointerEvent) => {
+      if (!e.isPrimary) return
+      pointerActive = true
+      downX = e.clientX
+      downY = e.clientY
+    }
+    const onPointerUp = (e: PointerEvent) => {
+      if (!pointerActive) return
+      pointerActive = false
+      if (Math.hypot(e.clientX - downX, e.clientY - downY) >= CLICK_SLOP) return
+      const card = frontCardRef.current
+      if (!card?.el || !card.video) return
+      const rect = card.el.getBoundingClientRect()
+      if (
+        e.clientX < rect.left ||
+        e.clientX > rect.right ||
+        e.clientY < rect.top ||
+        e.clientY > rect.bottom
+      ) {
+        return
+      }
+      toggleSound(card.video)
+    }
+
     window.addEventListener('wheel', onWheel, { passive: false })
     window.addEventListener('mousemove', onMouseMove, { passive: true })
     window.addEventListener('touchstart', onTouchStart, { passive: true })
     window.addEventListener('touchmove', onTouchMove, { passive: false })
     window.addEventListener('touchend', onTouchEnd, { passive: true })
+    window.addEventListener('pointerdown', onPointerDown, { passive: true })
+    window.addEventListener('pointerup', onPointerUp, { passive: true })
 
     const half = total / 2
 
@@ -276,6 +332,9 @@ function MotionHelixStackBase(
       displayMouseX.current = lerp(displayMouseX.current, targetMouseX.current)
 
       const dpos = displayPos.current
+
+      let frontCard: CardState | null = null
+      let frontAbsDelta = Infinity
 
       for (let i = 0; i < total; i++) {
         const card = cardsRef.current[i]
@@ -293,6 +352,12 @@ function MotionHelixStackBase(
         }
 
         const delta = card.cell - dpos
+
+        const absDelta = Math.abs(delta)
+        if (absDelta < frontAbsDelta) {
+          frontAbsDelta = absDelta
+          frontCard = card
+        }
 
         if (Math.abs(delta) > WINDOW) {
           if (card.el.style.visibility !== 'hidden') card.el.style.visibility = 'hidden'
@@ -334,9 +399,18 @@ function MotionHelixStackBase(
         }
       }
 
+      frontCardRef.current = frontCard
+
       const frontVideo = videoIndexForCell(Math.round(dpos))
       if (frontVideo !== frontVideoRef.current) {
         frontVideoRef.current = frontVideo
+        // The centred clip changed — kill any sound that was deliberately
+        // enabled so audio never blasts on as cards cycle.
+        if (unmutedVideoRef.current) {
+          unmutedVideoRef.current.muted = true
+          unmutedVideoRef.current = null
+          onSoundRef.current?.(false)
+        }
         onFrontRef.current?.(frontVideo)
       }
 
@@ -352,6 +426,8 @@ function MotionHelixStackBase(
       window.removeEventListener('touchstart', onTouchStart)
       window.removeEventListener('touchmove', onTouchMove)
       window.removeEventListener('touchend', onTouchEnd)
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('pointerup', onPointerUp)
     }
   }, [assignVideo, total, videoIndexForCell])
 
