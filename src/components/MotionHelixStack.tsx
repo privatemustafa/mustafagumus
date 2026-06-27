@@ -19,8 +19,16 @@ type MotionHelixStackProps = {
   onSoundStateChange?: (unmuted: boolean) => void
 }
 
-/** Landscape card width (unchanged from the original look). */
-const PANEL_W = 'min(56vw, 820px)'
+/**
+ * Landscape card width. Driven by the `--motion-panel-w` custom property so the
+ * value can be swapped reactively per breakpoint (see the responsive effect).
+ * Desktop/tablet keep the original `min(56vw, 820px)`; phones get a larger value
+ * so the centred clip reads big. The fallback equals the desktop value, so any
+ * non-overridden context renders exactly as before.
+ */
+const PANEL_W_DESKTOP = 'min(56vw, 820px)'
+const PANEL_W_MOBILE = 'min(86vw, 560px)'
+const PANEL_W = `var(--motion-panel-w, ${PANEL_W_DESKTOP})`
 /**
  * Uniform card HEIGHT for every orientation — equals the original landscape
  * height (PANEL_W * 9/16). Width then derives from orientation so portraits
@@ -28,9 +36,14 @@ const PANEL_W = 'min(56vw, 820px)'
  */
 const CARD_H = `calc(${PANEL_W} * ${9 / 16})`
 const LERP = 0.09
+/** Horizontal spread of the helix (desktop). Bigger = neighbours sit further out. */
 const X_RADIUS = 460
 /** Radians between neighbouring cards on the helix — bigger = more spacing */
 const ANGLE_STEP = 1.05
+/** Phones: pull neighbours in tight so they hug the (larger) centred card. */
+const ANGLE_STEP_MOBILE = 0.95
+/** Phones (<= this width) get the bigger card + tighter radius treatment. */
+const MOBILE_MQ = '(max-width: 640px)'
 /** How many cards each side of centre stay rendered */
 const WINDOW = 2.4
 const MOUSE_PULL = 0.04
@@ -101,7 +114,13 @@ function MotionHelixStackBase(
 ) {
   const total = items.length
   const cardsRef = useRef<CardState[]>([])
+  const trackRef = useRef<HTMLDivElement | null>(null)
   const rafRef = useRef(0)
+  // Helix geometry the rAF loop reads each frame. Held in refs (not module
+  // constants) so the responsive effect can retune them on phones without a
+  // re-render. Defaults are the unchanged desktop values.
+  const xRadiusRef = useRef(X_RADIUS)
+  const angleStepRef = useRef(ANGLE_STEP)
   const frontVideoRef = useRef(-1)
   /** The card nearest centre (smallest |delta|) — the clickable/playing one. */
   const frontCardRef = useRef<CardState | null>(null)
@@ -227,6 +246,42 @@ function MotionHelixStackBase(
       if (card?.el && item) card.el.style.width = cardWidthExpr(item)
     })
   }, [items])
+
+  // Reactive mobile tuning: on phones, enlarge the cards (via the
+  // `--motion-panel-w` custom property the JSX sizing reads) and pull the helix
+  // radius/angle in tight so neighbours hug the centred clip instead of being
+  // flung off-screen. Desktop/tablet keep the exact original geometry.
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_MQ)
+
+    const apply = () => {
+      const track = trackRef.current
+      if (mq.matches) {
+        // Tie the radius to viewport width so neighbours sit just off the
+        // centred card on any phone size, clamped to a clean range.
+        const radius = Math.round(
+          Math.min(232, Math.max(186, window.innerWidth * 0.58)),
+        )
+        xRadiusRef.current = radius
+        angleStepRef.current = ANGLE_STEP_MOBILE
+        track?.style.setProperty('--motion-panel-w', PANEL_W_MOBILE)
+      } else {
+        xRadiusRef.current = X_RADIUS
+        angleStepRef.current = ANGLE_STEP
+        track?.style.removeProperty('--motion-panel-w')
+      }
+    }
+
+    apply()
+    mq.addEventListener('change', apply)
+    window.addEventListener('resize', apply)
+    window.addEventListener('orientationchange', apply)
+    return () => {
+      mq.removeEventListener('change', apply)
+      window.removeEventListener('resize', apply)
+      window.removeEventListener('orientationchange', apply)
+    }
+  }, [])
 
   useEffect(() => {
     if (total === 0) return
@@ -369,8 +424,8 @@ function MotionHelixStackBase(
         }
         if (card.el.style.visibility === 'hidden') card.el.style.visibility = 'visible'
 
-        const angle = delta * ANGLE_STEP
-        const targetX = Math.sin(angle) * X_RADIUS
+        const angle = delta * angleStepRef.current
+        const targetX = Math.sin(angle) * xRadiusRef.current
         const depth = (Math.cos(angle) + 1) / 2
         const targetScale = 0.55 + depth * depth * 0.45
 
@@ -433,7 +488,7 @@ function MotionHelixStackBase(
 
   return (
     <div className="motion-helix-stage absolute inset-0 flex items-center justify-center overflow-hidden">
-      <div className="motion-helix-track relative w-full h-full">
+      <div ref={trackRef} className="motion-helix-track relative w-full h-full">
         {items.map((item, i) => (
           <div
             key={i}
