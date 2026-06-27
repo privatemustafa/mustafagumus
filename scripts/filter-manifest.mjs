@@ -59,10 +59,7 @@ async function main() {
   const capped = []
 
   for (const entry of ownerOnly) {
-    if (entry.type === 'video' || entry.videoSrc) {
-      capped.push(entry)
-      continue
-    }
+    if (entry.type === 'video' || entry.videoSrc) continue
     const code = postShortcode(entry.postUrl)
     const count = perPost.get(code) ?? 0
     if (count >= MAX_IMAGES_PER_POST) continue
@@ -81,10 +78,7 @@ async function main() {
       removed.junk++
       continue
     }
-    if (entry.type === 'video') {
-      kept.push(entry)
-      continue
-    }
+    if (entry.type === 'video' || entry.videoSrc) continue
 
     const filePath = resolveImagePath(entry.src)
     if (!filePath) {

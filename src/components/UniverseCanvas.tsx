@@ -15,6 +15,8 @@ export type UniverseImage = UniverseMedia
 
 interface UniverseCanvasProps {
   media: UniverseMedia[]
+  /** Show poster frames immediately (motion page — avoids black void while videos decode) */
+  eagerPosters?: boolean
 }
 
 const SPACING = 8
@@ -195,7 +197,7 @@ function createPlaceholder(scatter: Scatter, slot: number): THREE.Mesh {
   return mesh
 }
 
-export function UniverseCanvas({ media }: UniverseCanvasProps) {
+export function UniverseCanvas({ media, eagerPosters = false }: UniverseCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const stateRef = useRef({
     travel: 0,
@@ -321,6 +323,7 @@ export function UniverseCanvas({ media }: UniverseCanvasProps) {
       mesh.material = mat
       mesh.userData.isPlaceholder = false
       mesh.userData.isVideo = !!videoPlayer
+      if (videoPlayer) mesh.userData.posterOnly = false
       setGrayscale(mesh, !videoPlayer && grayscaleSet.has(i))
       mesh.userData.slot = slot
       mesh.userData.scatter = scatter
@@ -357,28 +360,32 @@ export function UniverseCanvas({ media }: UniverseCanvasProps) {
     }
 
     const loadTexture = (i: number) => {
-      if (loadState.get(i) !== 'pending') return
-      loadState.set(i, 'loading')
-
+      if (loadState.get(i) === 'loading') return
       const item = media[i]
       const scatter = layouts[i].scatter
       const slot = layouts[i].slot
 
       if (item.type === 'video' && item.videoSrc) {
+        const mesh = meshes[i]
+        const upgrading = loadState.get(i) === 'loaded' && mesh.userData.posterOnly
+
+        if (!upgrading) {
+          if (loadState.get(i) !== 'pending') return
+          loadState.set(i, 'loading')
+        }
+
         const player = new VideoPlayer(item.videoSrc, VIDEO_PRELOAD)
         player
           .load()
           .then(() => {
-            // Mesh may have scrolled away while the video was buffering.
-            if (loadState.get(i) !== 'loading') {
+            if (!upgrading && loadState.get(i) !== 'loading') {
               player.dispose()
               return
             }
             applyTexture(i, player.texture, scatter, slot, player)
           })
           .catch(() => {
-            if (loadState.get(i) !== 'loading') return
-            // Video yoksa / yüklenmediyse poster görseline düş
+            if (!upgrading && loadState.get(i) !== 'loading') return
             loader.load(
               item.src,
               (texture) => applyTexture(i, texture, scatter, slot),
@@ -388,6 +395,9 @@ export function UniverseCanvas({ media }: UniverseCanvasProps) {
           })
         return
       }
+
+      if (loadState.get(i) !== 'pending') return
+      loadState.set(i, 'loading')
 
       loader.load(
         item.src,
@@ -418,6 +428,27 @@ export function UniverseCanvas({ media }: UniverseCanvasProps) {
       loadCursor = end
       if (loadCursor >= loadQueue.length) clearInterval(batchTimer)
     }, BATCH_INTERVAL)
+
+    if (eagerPosters) {
+      media.forEach((item, i) => {
+        if (item.type !== 'video' || !item.videoSrc) return
+        const scatter = layouts[i].scatter
+        const slot = layouts[i].slot
+        loader.load(
+          item.src,
+          (texture) => {
+            const mesh = meshes[i]
+            if (mesh.userData.posterOnly || mesh.userData.isVideo) return
+            applyTexture(i, texture, scatter, slot)
+            mesh.userData.posterOnly = true
+            loadState.set(i, 'loaded')
+            loadTexture(i)
+          },
+          undefined,
+          () => loadState.set(i, 'pending'),
+        )
+      })
+    }
 
     document.addEventListener('pointerdown', tryPlayVideos, { once: true })
 
@@ -474,7 +505,10 @@ export function UniverseCanvas({ media }: UniverseCanvasProps) {
         if (mesh.userData.isPlaceholder) {
           mat.opacity = 0
           const loadRange = isVideoItem ? VIDEO_LOAD_RANGE : LOAD_RANGE
-          if (dist < loadRange && loadState.get(i) === 'pending') loadTexture(i)
+          if (dist < loadRange && loadState.get(i) === 'pending') {
+            // Motion page: poster-first path owns video loading — avoid racing ahead of posters
+            if (!(eagerPosters && isVideoItem)) loadTexture(i)
+          }
           return
         }
 
@@ -632,7 +666,7 @@ export function UniverseCanvas({ media }: UniverseCanvasProps) {
         mat.dispose()
       })
     }
-  }, [media, handleWheel])
+  }, [media, handleWheel, eagerPosters])
 
   return (
     <div

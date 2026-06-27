@@ -3,13 +3,15 @@ import imagesManifest from '../data/images.json'
 import { filterProfileManifest } from '../lib/manifestFilter'
 import { BrandTicker } from './BrandTicker'
 
+export type LoaderDestination = '/' | '/motion'
+
 interface LoaderProps {
-  onEnter: () => void
+  onEnter: (destination: LoaderDestination) => void
 }
 
 type ManifestEntry = { src: string; type?: string }
 
-const SLIDE_MS = 333 // ~3 changes per second
+const SLIDE_MS = 333
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr]
@@ -24,6 +26,7 @@ export function Loader({ onEnter }: LoaderProps) {
   const [exiting, setExiting] = useState(false)
   const [ready, setReady] = useState(false)
   const [slide, setSlide] = useState(0)
+  const [destination, setDestination] = useState<LoaderDestination | null>(null)
 
   const slides = useMemo(
     () =>
@@ -40,7 +43,6 @@ export function Loader({ onEnter }: LoaderProps) {
       setReady(true)
       return
     }
-    // Show as soon as a few slides are ready; never block more than ~1.2s.
     let loaded = 0
     const goal = Math.min(4, slides.length)
     const fallback = window.setTimeout(() => setReady(true), 1200)
@@ -68,41 +70,36 @@ export function Loader({ onEnter }: LoaderProps) {
     return () => clearInterval(id)
   }, [ready, slides.length])
 
-  function handleEnter() {
+  function handleEnter(path: LoaderDestination) {
     if (exiting) return
+    setDestination(path)
     setExiting(true)
-    setTimeout(onEnter, 450)
+    setTimeout(() => onEnter(path), 450)
   }
 
   const bgSrc = slides[slide] ?? slides[0]
 
   return (
     <div
-      className={`fixed inset-0 flex flex-col items-center justify-center bg-black transition-opacity duration-450 ease-out cursor-pointer select-none ${
+      className={`fixed inset-0 flex flex-col items-center justify-center bg-black transition-opacity duration-450 ease-out select-none ${
         exiting ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
       style={{ zIndex: 'var(--z-loader)' }}
-      onClick={handleEnter}
-      onKeyDown={(e) => e.key === 'Enter' && handleEnter()}
-      role="button"
-      tabIndex={0}
-      aria-label="Enter Mustafa Gumus archive — home"
     >
-      <div className="relative flex flex-col items-center gap-6 w-full max-w-[min(92vw,560px)] px-4">
+      <div className="relative flex flex-col items-center gap-8 w-full max-w-[min(92vw,560px)] px-4">
         <div
-          className={`relative flex w-full min-h-[min(48vh,380px)] items-center justify-center transition-opacity duration-500 ${
+          className={`relative flex w-full min-h-[min(44vh,360px)] items-center justify-center transition-opacity duration-500 ${
             ready ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          {/* Slideshow — natural aspect (portrait stays tall, landscape stays wide) */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="relative inline-block max-w-[min(84vw,520px)] max-h-[min(42vh,340px)] opacity-[0.38]">
+            <div className="relative inline-block max-w-[min(84vw,520px)] max-h-[min(38vh,320px)] opacity-[0.38]">
               {bgSrc && (
                 <img
                   key={bgSrc}
                   src={bgSrc}
                   alt=""
-                  className="block max-w-[min(84vw,520px)] max-h-[min(42vh,340px)] w-auto h-auto object-contain"
+                  className="block max-w-[min(84vw,520px)] max-h-[min(38vh,320px)] w-auto h-auto object-contain"
                   decoding="async"
                 />
               )}
@@ -139,9 +136,35 @@ export function Loader({ onEnter }: LoaderProps) {
         )}
 
         {ready && (
-          <span className="text-white/50 font-mono text-[10px] tracking-[0.4em] uppercase">
-            tap to enter
-          </span>
+          <div className="flex flex-col items-center gap-5 w-full">
+            <span className="text-white/40 font-mono text-[10px] tracking-[0.35em] uppercase">
+              Choose your path
+            </span>
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-5 w-full sm:w-auto sm:justify-center">
+              <button
+                type="button"
+                className={`loader-choice px-8 py-3.5 font-mono text-[10px] tracking-[0.35em] uppercase border transition-colors duration-200 ${
+                  destination === '/'
+                    ? 'border-white text-white'
+                    : 'border-white/35 text-white/70 hover:border-white/60 hover:text-white'
+                }`}
+                onClick={() => handleEnter('/')}
+              >
+                Photos
+              </button>
+              <button
+                type="button"
+                className={`loader-choice px-8 py-3.5 font-mono text-[10px] tracking-[0.35em] uppercase border transition-colors duration-200 ${
+                  destination === '/motion'
+                    ? 'border-white text-white'
+                    : 'border-white/35 text-white/70 hover:border-white/60 hover:text-white'
+                }`}
+                onClick={() => handleEnter('/motion')}
+              >
+                Motion
+              </button>
+            </div>
+          </div>
         )}
       </div>
 

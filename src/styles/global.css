@@ -119,6 +119,21 @@
   white-space: nowrap;
 }
 
+/* Motion — full-screen grain over everything (blacks included) for cohesion */
+.motion-grain {
+  position: fixed;
+  inset: 0;
+  background-image: var(--hero-noise-image);
+  background-size: var(--hero-noise-size);
+  background-repeat: repeat;
+  opacity: 0.11;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: 2300;
+  will-change: background-image;
+  contain: strict;
+}
+
 /* Film grain — texture JS tarafından ~10fps güncelleniyor, CSS animasyon yok */
 body::after {
   content: '';
@@ -250,6 +265,98 @@ body::after {
 
 .fade-in-canvas {
   animation: fadeIn 3s ease-out forwards;
+}
+
+/* Motion — helix scroll stack (Mark Clennon style) */
+.motion-helix-stage {
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.motion-helix-track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.motion-helix-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-origin: center center;
+  will-change: transform;
+  overflow: hidden;
+  border-radius: 5px;
+  contain: layout style paint;
+}
+
+.motion-stage-3d {
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.motion-stage-3d,
+.motion-carousel,
+.motion-leaf {
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+.motion-carousel--magnetic,
+.motion-viewport {
+  overflow: hidden;
+}
+
+.motion-viewport {
+  width: min(64vw, 920px);
+  height: min(72vh, 820px);
+  clip-path: inset(0);
+  isolation: isolate;
+}
+
+.motion-leaf {
+  opacity: 1;
+  overflow: hidden;
+  border-radius: 5px;
+  contain: layout style paint;
+}
+
+.motion-leaf-inner {
+  opacity: 1;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.motion-leaf-video {
+  display: block;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.motion-leaf-inner--solid {
+  clip-path: none;
+  border-radius: 5px;
+  box-shadow:
+    0 48px 120px rgba(0, 0, 0, 0.8),
+    0 0 0 1px rgba(255, 255, 255, 0.09);
+}
+
+.motion-leaf-inner--leaf {
+  clip-path: polygon(2.5% 0%, 97.5% 0%, 95% 100%, 5% 100%);
+  border-radius: 4px;
+  box-shadow: 0 28px 72px rgba(0, 0, 0, 0.68);
+}
+
+.scroll-dist {
+  display: block;
+  width: 100%;
+}
+
+.motion-side-title {
+  font-family: 'Asul', Georgia, serif;
+  font-style: italic;
+  letter-spacing: 0.02em;
+  line-height: 0.95;
 }
 
 .menu-fade-in {

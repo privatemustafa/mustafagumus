@@ -1,0 +1,209 @@
+[
+  {
+    "id": "01-private-issues",
+    "title": "Private Issues",
+    "src": "/videos/motion/01-private-issues.mp4?v=ixnsmqv54nrr",
+    "order": 1,
+    "orientation": "landscape",
+    "width": 800,
+    "height": 720
+  },
+  {
+    "id": "02-dmnsn-campaign",
+    "title": "DMNSN Campaign",
+    "src": "/videos/motion/02-dmnsn-campaign.mp4?v=38haumqv54px0",
+    "order": 2,
+    "orientation": "landscape",
+    "width": 1280,
+    "height": 720
+  },
+  {
+    "id": "10-realm-of-be",
+    "title": "realm of be",
+    "src": "/videos/motion/10-realm-of-be.mp4?v=rprmmqv6rx7s",
+    "order": 3,
+    "orientation": "portrait",
+    "width": 720,
+    "height": 1280
+  },
+  {
+    "id": "03-tokyo-archive",
+    "title": "tokyo archive",
+    "src": "/videos/motion/03-tokyo-archive.mp4?v=5ayo1mqv5f0fz",
+    "order": 4,
+    "orientation": "landscape",
+    "width": 1276,
+    "height": 720
+  },
+  {
+    "id": "04-esquire",
+    "title": "Esquire",
+    "src": "/videos/motion/04-esquire.mp4?v=2g73hmqv5f9ss",
+    "order": 5,
+    "orientation": "landscape",
+    "width": 1278,
+    "height": 720
+  },
+  {
+    "id": "05-converse-suprestep",
+    "title": "converse suprestep",
+    "src": "/videos/motion/05-converse-suprestep.mp4?v=5kg1qmqv5fihv",
+    "order": 6,
+    "orientation": "landscape",
+    "width": 1278,
+    "height": 720
+  },
+  {
+    "id": "16-ezgi-cinar",
+    "title": "ezgi cınar",
+    "src": "/videos/motion/16-ezgi-cinar.mp4?v=32515mqv82y8y",
+    "order": 7,
+    "orientation": "portrait",
+    "width": 720,
+    "height": 1280
+  },
+  {
+    "id": "06-loffieciel",
+    "title": "L'Officiel",
+    "src": "/videos/motion/06-loffieciel.mp4?v=8l0imqv5uu3o",
+    "order": 8,
+    "orientation": "landscape",
+    "width": 540,
+    "height": 358
+  },
+  {
+    "id": "23-lofficiel-3",
+    "title": "L'Officiel 3",
+    "src": "/videos/motion/23-lofficiel-3.mp4?v=qmqomqv8dsip",
+    "order": 9,
+    "orientation": "landscape",
+    "width": 1280,
+    "height": 720
+  },
+  {
+    "id": "07-mysa-moon",
+    "title": "Mysa Moon",
+    "src": "/videos/motion/07-mysa-moon.mp4?v=1s78fmqv5v5pw",
+    "order": 10,
+    "orientation": "landscape",
+    "width": 1078,
+    "height": 606
+  },
+  {
+    "id": "17-whats-on-a-roll",
+    "title": "what's on a roll",
+    "src": "/videos/motion/17-whats-on-a-roll.mp4?v=1ra2smqv82y97",
+    "order": 11,
+    "orientation": "portrait",
+    "width": 720,
+    "height": 1280
+  },
+  {
+    "id": "08-public-poems",
+    "title": "public poems",
+    "src": "/videos/motion/08-public-poems.mp4?v=t9hnkmqv5vhml",
+    "order": 12,
+    "orientation": "landscape",
+    "width": 1080,
+    "height": 608
+  },
+  {
+    "id": "09-esquire-ii",
+    "title": "esquire 2",
+    "src": "/videos/motion/09-esquire-ii.mp4?v=3txiwmqv6sack",
+    "order": 13,
+    "orientation": "landscape",
+    "width": 1278,
+    "height": 720
+  },
+  {
+    "id": "18-whats-on-a-roll-ii",
+    "title": "what's on a roll II",
+    "src": "/videos/motion/18-whats-on-a-roll-ii.mp4?v=iw4vmqv82y9b",
+    "order": 14,
+    "orientation": "portrait",
+    "width": 720,
+    "height": 1280
+  },
+  {
+    "id": "11-b-g-store",
+    "title": "b&g store",
+    "src": "/videos/motion/11-b-g-store.mp4?v=3pkggmqv6rll8",
+    "order": 15,
+    "orientation": "landscape",
+    "width": 1078,
+    "height": 606
+  },
+  {
+    "id": "12-rin",
+    "title": "rin",
+    "src": "/videos/motion/12-rin.mp4?v=11naomqv7aci6",
+    "order": 16,
+    "orientation": "landscape",
+    "width": 1276,
+    "height": 720
+  },
+  {
+    "id": "13-tbilisi-archive",
+    "title": "tbilisi archive",
+    "src": "/videos/motion/13-tbilisi-archive.mp4?v=mypmmqv7athb",
+    "order": 17,
+    "orientation": "landscape",
+    "width": 1276,
+    "height": 720
+  },
+  {
+    "id": "21-quatervois",
+    "title": "quatervois",
+    "src": "/videos/motion/21-quatervois.mp4?v=1x402mqv82ya3",
+    "order": 18,
+    "orientation": "portrait",
+    "width": 720,
+    "height": 1280
+  },
+  {
+    "id": "14-esquire",
+    "title": "esquire",
+    "src": "/videos/motion/14-esquire.mp4?v=4kunpmqv6itzz",
+    "order": 19,
+    "orientation": "landscape",
+    "width": 1278,
+    "height": 720
+  },
+  {
+    "id": "15-quzu",
+    "title": "quzu",
+    "src": "/videos/motion/15-quzu.mp4?v=684xdmqv6jsdr",
+    "order": 20,
+    "orientation": "landscape",
+    "width": 1280,
+    "height": 720
+  },
+  {
+    "id": "19-birdiejay",
+    "title": "birdiejay",
+    "src": "/videos/motion/19-birdiejay.mp4?v=1ew66mqv82y9i",
+    "order": 21,
+    "orientation": "landscape",
+    "width": 1078,
+    "height": 606
+  },
+  {
+    "id": "22-dimension",
+    "title": "dimension",
+    "src": "/videos/motion/22-dimension.mp4?v=1q9lvmqv82ya8",
+    "order": 22,
+    "orientation": "portrait",
+    "width": 720,
+    "height": 1280
+  },
+  {
+    "id": "20-punk-2024",
+    "title": "punk 2024",
+    "src": "/videos/motion/20-punk-2024.mp4?v=393h0mqv82y9w",
+    "order": 23,
+    "orientation": "landscape",
+    "width": 1080,
+    "height": 608
+  }
+]
