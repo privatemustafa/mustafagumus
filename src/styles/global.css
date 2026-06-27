@@ -119,6 +119,39 @@
   white-space: nowrap;
 }
 
+/* Header logo — cycles brand / Archive / Motion */
+.logo-cycle {
+  position: relative;
+  justify-content: center;
+  min-width: 9.5rem;
+}
+
+.logo-cycle__panel {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.55em;
+  line-height: 1;
+  opacity: 0;
+  transform: translateY(5px);
+  transition:
+    opacity var(--duration-slow) var(--ease-default),
+    transform var(--duration-slow) var(--ease-default);
+}
+
+.logo-cycle__panel--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-cycle__panel {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 /* Motion — full-screen grain over everything (blacks included) for cohesion */
 .motion-grain {
   position: fixed;

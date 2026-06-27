@@ -1,3 +1,5 @@
+import { MenuLogoCycle } from './MenuLogoCycle'
+
 interface LogoProps {
   onOpenMenu?: () => void
 }
@@ -8,13 +10,10 @@ export function Logo({ onOpenMenu }: LogoProps) {
       type="button"
       className="logo"
       onClick={() => onOpenMenu?.()}
-      aria-label="Open menu"
+      aria-label="Open menu — Archive, Motion, and more"
     >
       <span className="logo__rule" aria-hidden />
-      <span className="logo__lockup">
-        <span className="logo__line">MUSTAFA</span>
-        <span className="logo__line">GUMUS</span>
-      </span>
+      <MenuLogoCycle />
       <span className="logo__rule" aria-hidden />
     </button>
   )
