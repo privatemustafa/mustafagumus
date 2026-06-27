@@ -106,7 +106,8 @@ function detect(): DeviceCapabilities {
         videoLoadRange: 50,
         videoUnloadRange: 130,
         videoCopies: isMobile ? 1 : 2,
-        maxMeshes: isMobile ? 240 : 420,
+        // Mobile gets ~15% more photos for a denser archive field; desktop unchanged.
+        maxMeshes: isMobile ? 276 : 420,
         grainFps: isMobile ? 7 : 9,
         reducedMotion,
       }
@@ -122,7 +123,8 @@ function detect(): DeviceCapabilities {
         videoLoadRange: 42,
         videoUnloadRange: 110,
         videoCopies: 1,
-        maxMeshes: 150,
+        // Mobile gets ~15% more photos for a denser archive field; desktop unchanged.
+        maxMeshes: isMobile ? 173 : 150,
         grainFps: 6,
         reducedMotion,
       }
