@@ -5,6 +5,7 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
 } from 'react'
 import type { MotionEntry } from '../data/motion'
 
@@ -35,7 +36,10 @@ const PANEL_W = `var(--motion-panel-w, ${PANEL_W_DESKTOP})`
  * sit at the SAME height as the landscapes, just narrower.
  */
 const CARD_H = `calc(${PANEL_W} * ${9 / 16})`
+/** Scroll-follow damping. Lower = more damped (smoother, more inertial). */
 const LERP = 0.09
+/** Phones: more damping on swipe so the scrub settles softly. */
+const LERP_MOBILE = 0.14
 /** Horizontal spread of the helix (desktop). Bigger = neighbours sit further out. */
 const X_RADIUS = 460
 /** Radians between neighbouring cards on the helix — bigger = more spacing */
@@ -49,7 +53,7 @@ const WINDOW = 2.4
 const MOUSE_PULL = 0.04
 const PLAY_SCALE = 0.92
 /** px of horizontal finger drag that advances one card on mobile */
-const TOUCH_DRAG_PER_CARD = 0.55
+const TOUCH_DRAG_PER_CARD = 0.2
 
 type CardState = {
   el: HTMLDivElement | null
@@ -62,9 +66,9 @@ type CardState = {
   playing: boolean
 }
 
-function lerp(current: number, target: number): number {
+function lerp(current: number, target: number, factor = LERP): number {
   if (Math.abs(target - current) < 0.0005) return target
-  return current + (target - current) * LERP
+  return current + (target - current) * factor
 }
 
 /**
@@ -121,7 +125,25 @@ function MotionHelixStackBase(
   // re-render. Defaults are the unchanged desktop values.
   const xRadiusRef = useRef(X_RADIUS)
   const angleStepRef = useRef(ANGLE_STEP)
+  // Live-tunable swipe feel. Refs are read by the rAF/touch handlers each frame
+  // so changes apply instantly without re-subscribing listeners. On phones they
+  // take the mobile values (and the dev panel below can override them live).
+  const lerpRef = useRef(LERP)
+  const dragPerCardRef = useRef(TOUCH_DRAG_PER_CARD)
+  const isMobileRef = useRef(false)
   const frontVideoRef = useRef(-1)
+
+  // Dev-only tuning panel state (mobile). Gated to import.meta.env.DEV so it is
+  // tree-shaken out of production builds.
+  const [isMobileView, setIsMobileView] = useState(false)
+  const [devLerp, setDevLerp] = useState(LERP_MOBILE)
+  const [devDragPerCard, setDevDragPerCard] = useState(TOUCH_DRAG_PER_CARD)
+  // Mirror dev values into refs the responsive effect reads (avoids stale reads
+  // when crossing breakpoints) without re-subscribing.
+  const devLerpRef = useRef(devLerp)
+  devLerpRef.current = devLerp
+  const devDragRef = useRef(devDragPerCard)
+  devDragRef.current = devDragPerCard
   /** The card nearest centre (smallest |delta|) — the clickable/playing one. */
   const frontCardRef = useRef<CardState | null>(null)
   /** The single video currently allowed to have audio, or null when all muted. */
@@ -264,12 +286,20 @@ function MotionHelixStackBase(
         )
         xRadiusRef.current = radius
         angleStepRef.current = ANGLE_STEP_MOBILE
+        // Phones get more damping + the (possibly dev-tuned) swipe ratio.
+        lerpRef.current = devLerpRef.current
+        dragPerCardRef.current = devDragRef.current
+        isMobileRef.current = true
         track?.style.setProperty('--motion-panel-w', PANEL_W_MOBILE)
       } else {
         xRadiusRef.current = X_RADIUS
         angleStepRef.current = ANGLE_STEP
+        lerpRef.current = LERP
+        dragPerCardRef.current = TOUCH_DRAG_PER_CARD
+        isMobileRef.current = false
         track?.style.removeProperty('--motion-panel-w')
       }
+      setIsMobileView(mq.matches)
     }
 
     apply()
@@ -282,6 +312,14 @@ function MotionHelixStackBase(
       window.removeEventListener('orientationchange', apply)
     }
   }, [])
+
+  // Apply live dev-panel changes to the running animation (mobile only).
+  useEffect(() => {
+    if (isMobileRef.current) {
+      lerpRef.current = devLerp
+      dragPerCardRef.current = devDragPerCard
+    }
+  }, [devLerp, devDragPerCard])
 
   useEffect(() => {
     if (total === 0) return
@@ -317,7 +355,7 @@ function MotionHelixStackBase(
       if (touching) {
         // finger left → advance forward (horizontal scrub on mobile)
         const dx = lastTouchX - t.clientX
-        targetPos.current += dx / (window.innerWidth * TOUCH_DRAG_PER_CARD)
+        targetPos.current += dx / (window.innerWidth * dragPerCardRef.current)
         lastTouchX = t.clientX
       }
       targetMouseX.current = t.clientX
@@ -383,7 +421,7 @@ function MotionHelixStackBase(
     const half = total / 2
 
     const tick = () => {
-      displayPos.current = lerp(displayPos.current, targetPos.current)
+      displayPos.current = lerp(displayPos.current, targetPos.current, lerpRef.current)
       displayMouseX.current = lerp(displayMouseX.current, targetMouseX.current)
 
       const dpos = displayPos.current
@@ -487,26 +525,179 @@ function MotionHelixStackBase(
   }, [assignVideo, total, videoIndexForCell])
 
   return (
-    <div className="motion-helix-stage absolute inset-0 flex items-center justify-center overflow-hidden">
-      <div ref={trackRef} className="motion-helix-track relative w-full h-full">
-        {items.map((item, i) => (
-          <div
-            key={i}
-            ref={(el) => setCardRef(i, el)}
-            className="motion-helix-card"
-            style={{ height: CARD_H, width: cardWidthExpr(item) }}
-          >
-            <div className="motion-helix-inner motion-leaf-inner motion-leaf-inner--leaf w-full h-full overflow-hidden bg-black">
-              <video
-                className="motion-leaf-video w-full h-full object-cover"
-                muted
-                loop
-                playsInline
-                preload="metadata"
-              />
+    <>
+      <div className="motion-helix-stage absolute inset-0 flex items-center justify-center overflow-hidden">
+        <div ref={trackRef} className="motion-helix-track relative w-full h-full">
+          {items.map((item, i) => (
+            <div
+              key={i}
+              ref={(el) => setCardRef(i, el)}
+              className="motion-helix-card"
+              style={{ height: CARD_H, width: cardWidthExpr(item) }}
+            >
+              <div className="motion-helix-inner motion-leaf-inner motion-leaf-inner--leaf w-full h-full overflow-hidden bg-black">
+                <video
+                  className="motion-leaf-video w-full h-full object-cover"
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                />
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
+      </div>
+
+      {import.meta.env.DEV && isMobileView && (
+        <MotionSwipeDevPanel
+          lerp={devLerp}
+          dragPerCard={devDragPerCard}
+          onLerp={setDevLerp}
+          onDragPerCard={setDevDragPerCard}
+          onReset={() => {
+            setDevLerp(LERP_MOBILE)
+            setDevDragPerCard(TOUCH_DRAG_PER_CARD)
+          }}
+        />
+      )}
+    </>
+  )
+}
+
+type DevPanelProps = {
+  lerp: number
+  dragPerCard: number
+  onLerp: (v: number) => void
+  onDragPerCard: (v: number) => void
+  onReset: () => void
+}
+
+/**
+ * Dev-only mobile tuning panel. Lets you dial in the swipe damping (lerp) and
+ * the swipe ratio (px-of-drag per card) live, then copy the chosen numbers into
+ * the LERP_MOBILE / TOUCH_DRAG_PER_CARD constants. Never ships to production
+ * (rendered behind `import.meta.env.DEV`).
+ */
+function MotionSwipeDevPanel({
+  lerp,
+  dragPerCard,
+  onLerp,
+  onDragPerCard,
+  onReset,
+}: DevPanelProps) {
+  const [open, setOpen] = useState(true)
+
+  const wrap: React.CSSProperties = {
+    position: 'fixed',
+    left: 12,
+    bottom: 84,
+    zIndex: 2600,
+    width: 230,
+    padding: open ? '12px 14px' : '8px 12px',
+    borderRadius: 12,
+    background: 'rgba(10,10,10,0.82)',
+    backdropFilter: 'blur(8px)',
+    color: '#fff',
+    font: '11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace',
+    border: '1px solid rgba(255,255,255,0.16)',
+    pointerEvents: 'auto',
+    userSelect: 'none',
+  }
+
+  if (!open) {
+    return (
+      <div style={{ ...wrap, width: 'auto' }}>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          style={{ background: 'none', border: 'none', color: '#fff', font: 'inherit' }}
+        >
+          swipe ⚙︎
+        </button>
+      </div>
+    )
+  }
+
+  const row: React.CSSProperties = { marginTop: 10 }
+  const label: React.CSSProperties = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    letterSpacing: '0.04em',
+    color: 'rgba(255,255,255,0.7)',
+  }
+  const slider: React.CSSProperties = { width: '100%', marginTop: 4, accentColor: '#fff' }
+
+  return (
+    <div style={wrap}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <strong style={{ letterSpacing: '0.08em', fontWeight: 600 }}>SWIPE CONFIG</strong>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          aria-label="Collapse"
+          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', font: 'inherit' }}
+        >
+          ✕
+        </button>
+      </div>
+
+      <div style={row}>
+        <div style={label}>
+          <span>damping (lerp)</span>
+          <span style={{ color: '#fff' }}>{lerp.toFixed(3)}</span>
+        </div>
+        <input
+          type="range"
+          min={0.02}
+          max={0.2}
+          step={0.005}
+          value={lerp}
+          onChange={(e) => onLerp(Number(e.target.value))}
+          style={slider}
+        />
+        <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9 }}>
+          lower = more damped / smoother
+        </div>
+      </div>
+
+      <div style={row}>
+        <div style={label}>
+          <span>swipe ratio</span>
+          <span style={{ color: '#fff' }}>{dragPerCard.toFixed(2)}</span>
+        </div>
+        <input
+          type="range"
+          min={0.2}
+          max={1.6}
+          step={0.05}
+          value={dragPerCard}
+          onChange={(e) => onDragPerCard(Number(e.target.value))}
+          style={slider}
+        />
+        <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9 }}>
+          higher = less sensitive (more drag per card)
+        </div>
+      </div>
+
+      <div style={{ ...row, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <button
+          type="button"
+          onClick={onReset}
+          style={{
+            background: 'rgba(255,255,255,0.1)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            color: '#fff',
+            font: 'inherit',
+            borderRadius: 6,
+            padding: '3px 8px',
+          }}
+        >
+          reset
+        </button>
+        <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: 9 }}>
+          LERP_MOBILE / DRAG
+        </span>
       </div>
     </div>
   )
